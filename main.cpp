@@ -13,6 +13,8 @@
 
 static constexpr uint8_t PIN_DCDC_PSM_CTRL = 23;
 static constexpr uint8_t PIN_PICO_SPDIF_RX_DATA = 15;
+static constexpr uint8_t PIN_ROTARY_ENCODER_A = 26;
+static constexpr uint8_t PIN_ROTARY_ENCODER_B = 27;
 
 static constexpr int SAMPLES_PER_BUFFER = PICO_AUDIO_I2S_BUFFER_SAMPLE_LENGTH; // Samples / channel
 static constexpr int32_t DAC_ZERO = 1;
@@ -21,6 +23,27 @@ static audio_buffer_pool_t* ap = nullptr;
 static bool decode_flg = false;
 volatile static bool i2s_setup_flg = false;
 volatile static bool i2s_cancel_flg = false;
+
+static constexpr int ROTARY_ENCODER_STEP = 2;
+static constexpr int ROTARY_ENCODER_OUTPUT_MIN = 0;
+static constexpr int ROTARY_ENCODER_OUTPUT_MAX = 100;
+static constexpr int ROTARY_ENCODER_OUTPUT_DEFAULT = 50;
+static volatile int re_raw_value = ROTARY_ENCODER_OUTPUT_DEFAULT * ROTARY_ENCODER_STEP;
+static volatile int re_out_value = re_raw_value / ROTARY_ENCODER_STEP;
+
+const uint32_t vol_table[101] = {
+    0, 4, 8, 12, 16, 20, 24, 27, 29, 31,
+    34, 37, 40, 44, 48, 52, 57, 61, 67, 73,
+    79, 86, 94, 102, 111, 120, 131, 142, 155, 168,
+    183, 199, 217, 236, 256, 279, 303, 330, 359, 390, // vol_table[34] = 256
+    424, 462, 502, 546, 594, 646, 703, 764, 831, 904,
+    983, 1069, 1163, 1265, 1376, 1496, 1627, 1770, 1925, 2094,
+    2277, 2476, 2693, 2929, 3186, 3465, 3769, 4099, 4458, 4849,
+    5274, 5736, 6239, 6785, 7380, 8026, 8730, 9495, 10327, 11232,
+    12216, 13286, 14450, 15716, 17093, 18591, 20220, 21992, 23919, 26015,
+    28294, 30773, 33470, 36403, 39592, 43061, 46835, 50938, 55402, 60256,
+    65536
+};
 
 #define audio_pio __CONCAT(pio, PICO_AUDIO_I2S_PIO)
 
@@ -50,8 +73,6 @@ typedef enum _clkdiv_speed_t {
     CLKDIV_NORM = 1,
     CLKDIV_SLOW = 2
 } clkdiv_speed_t;
-
-static int32_t volume = 10;
 
 void save_center_clkdiv(PIO pio, uint sm)
 {
@@ -184,11 +205,23 @@ void decode()
         int i = 0;
         uint32_t read_count = 0;
         uint32_t* buff;
+        uint32_t volume_mul = vol_table[re_out_value];
         while (read_count < total_count) {
             uint32_t get_count = spdif_rx_read_fifo(&buff, total_count - read_count);
             for (int j = 0; j < get_count / 2; j++) {
-                samples[i*2+0] = (int32_t) ((buff[j*2+0] & 0x0ffffff0) << 4) / 256 * volume + DAC_ZERO;
-                samples[i*2+1] = (int32_t) ((buff[j*2+1] & 0x0ffffff0) << 4) / 256 * volume + DAC_ZERO;
+                if (volume_mul >= 256) {
+                    // keep 24bit if 32bit DAC
+                    samples[i*2+0] = (int32_t) ((buff[j*2+0] & 0x0ffffff0) << 4) / 256 * (volume_mul / 256) + DAC_ZERO;
+                    samples[i*2+1] = (int32_t) ((buff[j*2+1] & 0x0ffffff0) << 4) / 256 * (volume_mul / 256) + DAC_ZERO;
+                } else if (volume_mul >= 16) {
+                    // keep 20bit if 32bit DAC
+                    samples[i*2+0] = (int32_t) ((buff[j*2+0] & 0x0ffffff0) << 4) / 4096 * (volume_mul / 16) + DAC_ZERO;
+                    samples[i*2+1] = (int32_t) ((buff[j*2+1] & 0x0ffffff0) << 4) / 4096 * (volume_mul / 16) + DAC_ZERO;
+                } else {
+                    // keep 16bit if 32bit DAC
+                    samples[i*2+0] = (int32_t) ((buff[j*2+0] & 0x0ffffff0) << 4) / 65536 * volume_mul + DAC_ZERO;
+                    samples[i*2+1] = (int32_t) ((buff[j*2+1] & 0x0ffffff0) << 4) / 65536 * volume_mul + DAC_ZERO;
+                }
                 i++;
             }
             read_count += get_count;
@@ -276,6 +309,31 @@ void on_lost_stable_func()
     i2s_cancel_flg = true;
 }
 
+void gpio_callback(uint gpio, uint32_t events)
+{
+    int inc = 0;
+    if (gpio == PIN_ROTARY_ENCODER_A) {
+        if (events == GPIO_IRQ_EDGE_RISE) {
+            inc = (gpio_get(PIN_ROTARY_ENCODER_B)) ? -1 : 1;
+        } else if (events == GPIO_IRQ_EDGE_FALL) {
+            inc = (gpio_get(PIN_ROTARY_ENCODER_B)) ? 1 : -1;
+        }
+    } else if (gpio == PIN_ROTARY_ENCODER_B) {
+        if (events == GPIO_IRQ_EDGE_RISE) {
+            inc = (gpio_get(PIN_ROTARY_ENCODER_A)) ? 1 : -1;
+        } else if (events == GPIO_IRQ_EDGE_FALL) {
+            inc = (gpio_get(PIN_ROTARY_ENCODER_A)) ? -1 : 1;
+        }
+    }
+    re_raw_value += inc;
+    if (re_raw_value < ROTARY_ENCODER_OUTPUT_MIN * ROTARY_ENCODER_STEP) {
+        re_raw_value = ROTARY_ENCODER_OUTPUT_MIN * ROTARY_ENCODER_STEP;
+    } else if (re_raw_value > ROTARY_ENCODER_OUTPUT_MAX * ROTARY_ENCODER_STEP) {
+        re_raw_value = ROTARY_ENCODER_OUTPUT_MAX * ROTARY_ENCODER_STEP;
+    }
+    re_out_value = re_raw_value / ROTARY_ENCODER_STEP;
+}
+
 int main()
 {
     stdio_init_all();
@@ -288,6 +346,17 @@ int main()
     gpio_init(PIN_DCDC_PSM_CTRL);
     gpio_set_dir(PIN_DCDC_PSM_CTRL, GPIO_OUT);
     gpio_put(PIN_DCDC_PSM_CTRL, 1); // PWM mode for less Audio noise
+
+    // Rotary Encoder
+    gpio_init(PIN_ROTARY_ENCODER_A);
+    gpio_set_dir(PIN_ROTARY_ENCODER_A, GPIO_IN);
+    gpio_pull_up(PIN_ROTARY_ENCODER_A);
+    gpio_set_irq_enabled_with_callback(PIN_ROTARY_ENCODER_A, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, gpio_callback);
+
+    gpio_init(PIN_ROTARY_ENCODER_B);
+    gpio_set_dir(PIN_ROTARY_ENCODER_B, GPIO_IN);
+    gpio_pull_up(PIN_ROTARY_ENCODER_B);
+    gpio_set_irq_enabled_with_callback(PIN_ROTARY_ENCODER_B, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, gpio_callback);
 
     spdif_rx_config_t config = {
         .data_pin = PIN_PICO_SPDIF_RX_DATA,
@@ -306,14 +375,6 @@ int main()
         if (i2s_setup_flg) {
             i2s_setup_flg = false;
             i2s_setup(spdif_rx_get_samp_freq());
-        }
-        int c = getchar_timeout_us(0);
-        if (c) {
-            if (c == '-' && volume > 0) {
-                volume--;
-            } else if ((c == '=' || c == '+') && volume < 256) {
-                volume++;
-            }
         }
         tight_loop_contents();
         sleep_ms(10);
