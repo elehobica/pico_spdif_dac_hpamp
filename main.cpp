@@ -11,6 +11,8 @@
 #include "pico/audio_i2s.h"
 #include "spdif_rx.h"
 
+static constexpr uint PIN_LED = PICO_DEFAULT_LED_PIN;
+
 static constexpr uint8_t PIN_DCDC_PSM_CTRL = 23;
 static constexpr uint8_t PIN_PICO_SPDIF_RX_DATA = 15;
 static constexpr uint8_t PIN_ROTARY_ENCODER_A = 26;
@@ -244,28 +246,6 @@ void decode()
     #endif // DEBUG_PLAYAUDIO
 }
 
-void measure_freqs(void) {
-    uint f_pll_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY);
-    uint f_pll_usb = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_USB_CLKSRC_PRIMARY);
-    uint f_rosc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_ROSC_CLKSRC);
-    uint f_clk_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_SYS);
-    uint f_clk_peri = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_PERI);
-    uint f_clk_usb = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_USB);
-    uint f_clk_adc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_ADC);
-    uint f_clk_rtc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_RTC);
-
-    printf("pll_sys  = %dkHz\n", f_pll_sys);
-    printf("pll_usb  = %dkHz\n", f_pll_usb);
-    printf("rosc     = %dkHz\n", f_rosc);
-    printf("clk_sys  = %dkHz\n", f_clk_sys);
-    printf("clk_peri = %dkHz\n", f_clk_peri);
-    printf("clk_usb  = %dkHz\n", f_clk_usb);
-    printf("clk_adc  = %dkHz\n", f_clk_adc);
-    printf("clk_rtc  = %dkHz\n", f_clk_rtc);
-
-    // Can't measure clk_ref / xosc as it is the ref
-}
-
 extern "C" {
 void i2s_callback_func();
 }
@@ -345,7 +325,10 @@ int main()
 {
     stdio_init_all();
 
-    //measure_freqs();
+    // LED
+    gpio_init(PIN_LED);
+    gpio_set_dir(PIN_LED, GPIO_OUT);
+    gpio_put(PIN_LED, 0);
 
     // DCDC PSM control
     // 0: PFM mode (best efficiency)
@@ -383,6 +366,7 @@ int main()
             i2s_setup_flg = false;
             i2s_setup(spdif_rx_get_samp_freq());
         }
+        gpio_put(PIN_LED, spdif_rx_get_state() == SPDIF_RX_STATE_STABLE);
         tight_loop_contents();
         sleep_ms(10);
     }
