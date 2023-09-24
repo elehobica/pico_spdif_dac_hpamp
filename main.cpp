@@ -44,6 +44,7 @@ const uint32_t vol_table[101] = {
     28294, 30773, 33470, 36403, 39592, 43061, 46835, 50938, 55402, 60256,
     65536
 };
+static uint32_t volume_mul = vol_table[ROTARY_ENCODER_OUTPUT_DEFAULT];
 
 #define audio_pio __CONCAT(pio, PICO_AUDIO_I2S_PIO)
 
@@ -205,7 +206,13 @@ void decode()
         int i = 0;
         uint32_t read_count = 0;
         uint32_t* buff;
-        uint32_t volume_mul = vol_table[re_out_value];
+        uint32_t volume_mul_target = vol_table[re_out_value];
+        // volume slow transition to avoid noise
+        if (volume_mul < volume_mul_target) {
+            volume_mul += (volume_mul_target - volume_mul + 64) / 64;
+        } else if (volume_mul > volume_mul_target) {
+            volume_mul -= (volume_mul - volume_mul_target + 64) / 64;
+        }
         while (read_count < total_count) {
             uint32_t get_count = spdif_rx_read_fifo(&buff, total_count - read_count);
             for (int j = 0; j < get_count / 2; j++) {
