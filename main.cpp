@@ -17,6 +17,7 @@ static constexpr uint8_t PIN_DCDC_PSM_CTRL = 23;
 static constexpr uint8_t PIN_PICO_SPDIF_RX_DATA = 15;
 static constexpr uint8_t PIN_ROTARY_ENCODER_A = 26;
 static constexpr uint8_t PIN_ROTARY_ENCODER_B = 27;
+static constexpr uint8_t PIN_P5V_EN = 28;
 
 static constexpr int SAMPLES_PER_BUFFER = PICO_AUDIO_I2S_BUFFER_SAMPLE_LENGTH; // Samples / channel
 static constexpr int32_t DAC_ZERO = 1;
@@ -328,14 +329,18 @@ int main()
     // LED
     gpio_init(PIN_LED);
     gpio_set_dir(PIN_LED, GPIO_OUT);
-    gpio_put(PIN_LED, 0);
+    gpio_put(PIN_LED, false);
 
     // DCDC PSM control
     // 0: PFM mode (best efficiency)
     // 1: PWM mode (improved ripple)
     gpio_init(PIN_DCDC_PSM_CTRL);
     gpio_set_dir(PIN_DCDC_PSM_CTRL, GPIO_OUT);
-    gpio_put(PIN_DCDC_PSM_CTRL, 1); // PWM mode for less Audio noise
+    gpio_put(PIN_DCDC_PSM_CTRL, true); // PWM mode for less Audio noise
+
+    gpio_init(PIN_P5V_EN);
+    gpio_set_dir(PIN_P5V_EN, GPIO_OUT);
+    gpio_put(PIN_DCDC_PSM_CTRL, false);
 
     // Rotary Encoder
     gpio_init(PIN_ROTARY_ENCODER_A);
@@ -366,7 +371,13 @@ int main()
             i2s_setup_flg = false;
             i2s_setup(spdif_rx_get_samp_freq());
         }
-        gpio_put(PIN_LED, spdif_rx_get_state() == SPDIF_RX_STATE_STABLE);
+        if (spdif_rx_get_state() == SPDIF_RX_STATE_STABLE) {
+            gpio_put(PIN_LED, true);
+            gpio_put(PIN_P5V_EN, true);
+        } else {
+            gpio_put(PIN_LED, false);
+            gpio_put(PIN_P5V_EN, false);
+        }
         tight_loop_contents();
         sleep_ms(10);
     }

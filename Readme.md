@@ -23,3 +23,8 @@
 | 33 | GND | GND | GND |
 
 ![PCM5102_schematic](doc/PCM5102_Schematic.png)
+
+### Power Control for DAC & AMP 
+| Pico Pin # | Pin Name | Function | Connection |
+----|----|----|----
+| 34 | GP28 | GPIO Output | P5V_EN |
