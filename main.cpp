@@ -19,6 +19,9 @@ static constexpr uint8_t PIN_ROTARY_ENCODER_A = 26;
 static constexpr uint8_t PIN_ROTARY_ENCODER_B = 27;
 static constexpr uint8_t PIN_P5V_EN = 28;
 
+static constexpr uint32_t NO_SYNC_TIMEOUT_P5V_OFF_SEC = 60;
+static constexpr uint32_t NO_SIGNAL_TIMEOUT_P5V_OFF_SEC = 180;
+
 static constexpr int SAMPLES_PER_BUFFER = PICO_AUDIO_I2S_BUFFER_SAMPLE_LENGTH; // Samples / channel
 static constexpr int32_t DAC_ZERO = 1;
 static int16_t buf_s16[SAMPLES_PER_BUFFER*2]; // 16bit 2ch data before applying volume
@@ -33,6 +36,8 @@ static constexpr int ROTARY_ENCODER_OUTPUT_MAX = 100;
 static constexpr int ROTARY_ENCODER_OUTPUT_DEFAULT = 50;
 static volatile int re_raw_value = ROTARY_ENCODER_OUTPUT_DEFAULT * ROTARY_ENCODER_STEP;
 static volatile int re_out_value = re_raw_value / ROTARY_ENCODER_STEP;
+
+static volatile uint32_t last_signal_time;
 
 const uint32_t vol_table[101] = {
     0, 4, 8, 12, 16, 20, 24, 27, 29, 31,
@@ -78,7 +83,12 @@ typedef enum _clkdiv_speed_t {
     CLKDIV_SLOW = 2
 } clkdiv_speed_t;
 
-void save_center_clkdiv(PIO pio, uint sm)
+static inline uint32_t _millis()
+{
+    return to_ms_since_boot(get_absolute_time());
+}
+
+static void save_center_clkdiv(PIO pio, uint sm)
 {
     reg_clkdiv = &(pio->sm[sm].clkdiv);
     clkdiv_tbl[CLKDIV_NORM] = *reg_clkdiv;
@@ -86,12 +96,12 @@ void save_center_clkdiv(PIO pio, uint sm)
     clkdiv_tbl[CLKDIV_SLOW] = clkdiv_tbl[CLKDIV_NORM] + (1 << PIO_SM0_CLKDIV_FRAC_LSB);
 }
 
-void set_offset_clkdiv(clkdiv_speed_t speed)
+static void set_offset_clkdiv(clkdiv_speed_t speed)
 {
     *reg_clkdiv = clkdiv_tbl[speed];
 }
 
-void i2s_audio_deinit()
+static void i2s_audio_deinit()
 {
     decode_flg = false;
 
@@ -121,7 +131,7 @@ void i2s_audio_deinit()
     ap = nullptr;
 }
 
-audio_buffer_pool_t *i2s_audio_init(uint32_t sample_freq)
+static audio_buffer_pool_t *i2s_audio_init(uint32_t sample_freq)
 {
     audio_format.sample_freq = sample_freq;
 
@@ -155,13 +165,13 @@ audio_buffer_pool_t *i2s_audio_init(uint32_t sample_freq)
     return producer_pool;
 }
 
-void decode()
+static bool decode()
 {
     static bool mute_flag = true;
 
-    if (ap == nullptr) { return; }
+    if (ap == nullptr) { return false; }
     audio_buffer_t *ab;
-    if ((ab = take_audio_buffer(ap, false)) == nullptr) { return; }
+    if ((ab = take_audio_buffer(ap, false)) == nullptr) { return false; }
 
     #ifdef DEBUG_PLAYAUDIO
     {
@@ -182,6 +192,7 @@ void decode()
         mute_flag = true;
     }
 
+    bool has_non_zero_signal = false;
     if (mute_flag) {
         for (int i = 0; i < ab->sample_count; i++) {
             samples[i*2+0] = DAC_ZERO;
@@ -219,6 +230,9 @@ void decode()
         while (read_count < total_count) {
             uint32_t get_count = spdif_rx_read_fifo(&buff, total_count - read_count);
             for (int j = 0; j < get_count / 2; j++) {
+                if ((buff[j*2+0] & 0x0ffffff0) || (buff[j*2+1] & 0x0ffffff0)) {
+                    has_non_zero_signal = true;
+                }
                 if (volume_mul >= 256) {
                     // keep 24bit if 32bit DAC
                     samples[i*2+0] = (int32_t) ((buff[j*2+0] & 0x0ffffff0) << 4) / 256 * (volume_mul / 256) + DAC_ZERO;
@@ -245,6 +259,8 @@ void decode()
         printf("AUDIO::decode end   at %d ms\n", time);
     }
     #endif // DEBUG_PLAYAUDIO
+
+    return has_non_zero_signal;
 }
 
 extern "C" {
@@ -256,12 +272,15 @@ void i2s_callback_func();
 //   where i2s_callback_func() is declared with __attribute__((weak))
 void i2s_callback_func()
 {
+    uint32_t now = _millis();
     if (decode_flg) {
-        decode();
+        if (decode()) {
+            last_signal_time = now;
+        }
     }
 }
 
-void i2s_setup(spdif_rx_samp_freq_t samp_freq)
+static void i2s_setup(spdif_rx_samp_freq_t samp_freq)
 {
     float samp_freq_actual = spdif_rx_get_samp_freq_actual();
     uint32_t c_bits;
@@ -284,20 +303,20 @@ void i2s_setup(spdif_rx_samp_freq_t samp_freq)
     }
 }
 
-void on_stable_func(spdif_rx_samp_freq_t samp_freq)
+static void on_stable_func(spdif_rx_samp_freq_t samp_freq)
 {
     // callback function should be returned as quick as possible
     i2s_setup_flg = true;
     i2s_cancel_flg = false;
 }
 
-void on_lost_stable_func()
+static void on_lost_stable_func()
 {
     // callback function should be returned as quick as possible
     i2s_cancel_flg = true;
 }
 
-void gpio_callback(uint gpio, uint32_t events)
+static void gpio_callback(uint gpio, uint32_t events)
 {
     int inc = 0;
     if (gpio == PIN_ROTARY_ENCODER_A) {
@@ -366,18 +385,21 @@ int main()
     spdif_rx_set_callback_on_stable(on_stable_func);
     spdif_rx_set_callback_on_lost_stable(on_lost_stable_func);
 
+    uint32_t now = _millis();
+    uint32_t last_sync_time = 0;
     while (true) {
+        now = _millis();
         if (i2s_setup_flg) {
             i2s_setup_flg = false;
             i2s_setup(spdif_rx_get_samp_freq());
         }
         if (spdif_rx_get_state() == SPDIF_RX_STATE_STABLE) {
             gpio_put(PIN_LED, true);
-            gpio_put(PIN_P5V_EN, true);
+            last_sync_time = now;
         } else {
-            gpio_put(PIN_LED, false);
-            gpio_put(PIN_P5V_EN, false);
+            gpio_put(PIN_LED, (now / 250) % 2);  // blink 2 Hz / duty 50 %
         }
+        gpio_put(PIN_P5V_EN, (now - last_sync_time < NO_SYNC_TIMEOUT_P5V_OFF_SEC * 1000) && (now - last_signal_time < NO_SIGNAL_TIMEOUT_P5V_OFF_SEC * 1000));
         tight_loop_contents();
         sleep_ms(10);
     }
