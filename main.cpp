@@ -394,12 +394,16 @@ int main()
             i2s_setup(spdif_rx_get_samp_freq());
         }
         if (spdif_rx_get_state() == SPDIF_RX_STATE_STABLE) {
+            gpio_put(PIN_P5V_EN, true);
             gpio_put(PIN_LED, true);
             last_sync_time = now;
+        } else if ((now - last_sync_time < NO_SYNC_TIMEOUT_P5V_OFF_SEC * 1000) && (now - last_signal_time < NO_SIGNAL_TIMEOUT_P5V_OFF_SEC * 1000)) {
+            gpio_put(PIN_P5V_EN, true);
+            gpio_put(PIN_LED, ((now / 10) % 100 < 4));  // blink 1 Hz / duty 4 %
         } else {
-            gpio_put(PIN_LED, (now / 250) % 2);  // blink 2 Hz / duty 50 %
+            gpio_put(PIN_P5V_EN, false);
+            gpio_put(PIN_LED, false);
         }
-        gpio_put(PIN_P5V_EN, (now - last_sync_time < NO_SYNC_TIMEOUT_P5V_OFF_SEC * 1000) && (now - last_signal_time < NO_SIGNAL_TIMEOUT_P5V_OFF_SEC * 1000));
         tight_loop_contents();
         sleep_ms(10);
     }
