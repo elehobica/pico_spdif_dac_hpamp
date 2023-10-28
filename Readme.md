@@ -1,9 +1,18 @@
-# Raspberry Pi Pico spdif_rx DAC HPAmp
+# S/PDIF DAC headphone amp for Raspberry Pi Pico
+![banner](doc/pico_spdif_dac_hpamp.jpg)
+
+## Overview
+* Application of [pico_spdif_rx](https://github.com/elehobica/pico_spdif_rx/) project
+* DAC Headphone Amp for SPDIF input
+* DAC volume by rotary encoder
+* Li-Po battery opration
+* Auto power off by no-sync / no-single timeout
 
 ## Supported Board and Peripheral Devices
 * Raspberry Pi Pico (rp2040)
-* SPDIF Coaxial or TOSLINK (RX178A or equivalent) receiver
-* PCM5102
+* SPDIF Coaxial or TOSLINK (DLR1160 or equivalent) receiver
+* PCM5102 DAC board
+* FM5324 Li-Po Charger board
 
 ## Pin Assignment
 ### PCM5102
@@ -22,12 +31,40 @@
 | 32 | GP27 | GPIO Input | B Pin |
 | 33 | GND | GND | GND |
 
-![PCM5102_schematic](doc/PCM5102_Schematic.png)
-
 ### Power Control for DAC & AMP 
 | Pico Pin # | Pin Name | Function | Connection |
 ----|----|----|----
 | 34 | GP28 | GPIO Output | P5V_EN |
 
 ## Schematic
-[Schematic](doc/pico_spdif_dac_hpamp.pdf)
+[pico_spdif_dac_hpamp.pdf](doc/pico_spdif_dac_hpamp.pdf)
+
+## How to build
+* See ["Getting started with Raspberry Pi Pico"](https://datasheets.raspberrypi.org/pico/getting-started-with-pico.pdf)
+* Build is confirmed only in Developer Command Prompt for VS 2019 and Visual Studio Code on Windows enviroment
+* Put "pico-sdk", "pico-examples" (, "pico-extras" and "pico-playground") on the same level with this project folder.
+* Confirmed under Pico SDK 1.4.0
+```
+> git clone -b master https://github.com/raspberrypi/pico-sdk.git
+> cd pico-sdk
+> git submodule update -i
+> cd ..
+> git clone -b master https://github.com/raspberrypi/pico-examples.git
+>
+> git clone https://github.com/raspberrypi/pico-extras.git
+> cd pico-extras
+> git submodule update -i
+> cd ..
+> 
+> git clone -b main https://github.com/elehobica/pico_spdif_dac_hpamp
+```
+* Lanuch "Developer Command Prompt for VS 2019"
+```
+> cd pico_spdif_dac_hpamp
+> git submodule update -i
+> mkdir build
+> cd build
+> cmake -G "NMake Makefiles" ..
+> nmake
+```
+* Put "pico_spdif_dac_hpamp.uf2" on RPI-RP2 drive
