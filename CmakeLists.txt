@@ -20,6 +20,8 @@ add_subdirectory(lib/pico_audio_i2s_32b pico_audio_i2s_32b)
 add_executable(${PROJECT_NAME}
     main.cpp
     RotaryEncoder.cpp
+    UserFlash.cpp
+    ConfigParam.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}

@@ -18,7 +18,9 @@ class RotaryEncoder
 public:
     RotaryEncoder(const uint pinA, const uint pinB, const uint32_t step = 1, const int32_t initValue = 0, const int32_t min = 0, const int32_t max = 100);
     virtual ~RotaryEncoder();
-    int32_t value() const;
+    void set(int32_t value);
+    int32_t get() const;
+
 private:
     static std::map<const uint, RotaryEncoder* const> _pinARef;
     static std::map<const uint, RotaryEncoder* const> _pinBRef;
@@ -29,7 +31,8 @@ private:
     const int32_t _max;
     int32_t _rawValue;
 
-    void _add(const int32_t inc);
+    void _setRaw(int32_t rawValue);
+    void _inc(const bool up);
 
     friend void rotaryEncoderCallback(uint gpio, uint32_t events);
 };

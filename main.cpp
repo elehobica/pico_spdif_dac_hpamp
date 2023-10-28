@@ -11,6 +11,7 @@
 #include "pico/audio_i2s.h"
 #include "spdif_rx.h"
 #include "RotaryEncoder.h"
+#include "ConfigParam.h"
 
 static constexpr uint PIN_LED = PICO_DEFAULT_LED_PIN;
 
@@ -52,7 +53,7 @@ const uint32_t vol_table[101] = {
     28294, 30773, 33470, 36403, 39592, 43061, 46835, 50938, 55402, 60256,
     65536
 };
-static uint32_t volume_mul = vol_table[ROTARY_ENCODER_OUTPUT_DEFAULT];
+static uint32_t volume_mul;
 
 #define audio_pio __CONCAT(pio, PICO_AUDIO_I2S_PIO)
 
@@ -220,7 +221,7 @@ static bool decode()
         int i = 0;
         uint32_t read_count = 0;
         uint32_t* buff;
-        uint32_t volume_mul_target = vol_table[rotaryEncoder->value()];
+        uint32_t volume_mul_target = vol_table[rotaryEncoder->get()];
         // volume slow transition to avoid noise
         if (volume_mul < volume_mul_target) {
             volume_mul += (volume_mul_target - volume_mul + 64) / 64;
@@ -316,6 +317,21 @@ static void on_lost_stable_func()
     i2s_cancel_flg = true;
 }
 
+static void load_from_flash()
+{
+    rotaryEncoder->set(GET_CFG_VOLUME);
+    volume_mul = vol_table[rotaryEncoder->get()];
+}
+
+static void store_to_flash()
+{
+    // note that there is no care about core1 if running (if core1 runs, finalize() will fail)
+    // also it breaks spdif_rx data due to the pause of interrupts,
+    //   therefore store_to_flash() should be done after audio power off
+    configParam.setU32(ConfigParam::ParamID_t::CFG_VOLUME, (uint32_t) rotaryEncoder->get());
+    configParam.finalize();
+}
+
 int main()
 {
     stdio_init_all();
@@ -346,6 +362,9 @@ int main()
     gpio_pull_up(PIN_ROTARY_ENCODER_B);
     rotaryEncoder = new gpio::RotaryEncoder(PIN_ROTARY_ENCODER_A, PIN_ROTARY_ENCODER_B, ROTARY_ENCODER_STEP, ROTARY_ENCODER_OUTPUT_DEFAULT);
 
+    // Load from Flash
+    load_from_flash();
+
     spdif_rx_config_t config = {
         .data_pin = PIN_PICO_SPDIF_RX_DATA,
         .pio_sm = 0,
@@ -361,6 +380,7 @@ int main()
 
     uint32_t now = _millis();
     uint32_t last_sync_time = 0;
+    bool prev_power = true;
     while (true) {
         now = _millis();
         if (i2s_setup_flg) {
@@ -371,12 +391,18 @@ int main()
             gpio_put(PIN_P5V_EN, true);
             gpio_put(PIN_LED, true);
             last_sync_time = now;
+            prev_power = true;
         } else if ((now - last_sync_time < NO_SYNC_TIMEOUT_P5V_OFF_SEC * 1000) && (now - last_signal_time < NO_SIGNAL_TIMEOUT_P5V_OFF_SEC * 1000)) {
             gpio_put(PIN_P5V_EN, true);
             gpio_put(PIN_LED, ((now / 10) % 100 < 4));  // blink 1 Hz / duty 4 %
+            prev_power = true;
         } else {
             gpio_put(PIN_P5V_EN, false);
             gpio_put(PIN_LED, false);
+            if (prev_power) {
+                store_to_flash();  // at this timming the power from battery is still alive and shutdown soon
+            }
+            prev_power = false;
         }
         tight_loop_contents();
         sleep_ms(10);

@@ -17,23 +17,19 @@ std::map<const uint, RotaryEncoder* const> RotaryEncoder::_pinBRef;
 void rotaryEncoderCallback(uint gpio, uint32_t events)
 {
     if (RotaryEncoder::_pinARef.count(gpio) > 0) {
-        int32_t inc;
         RotaryEncoder* const re = RotaryEncoder::_pinARef[gpio];
         if (events == GPIO_IRQ_EDGE_RISE) {
-            inc = (gpio_get(re->_pinB)) ? -1 : 1;
+            re->_inc(!gpio_get(re->_pinB));
         } else if (events == GPIO_IRQ_EDGE_FALL) {
-            inc = (gpio_get(re->_pinB)) ? 1 : -1;
+            re->_inc(gpio_get(re->_pinB));
         }
-        re->_add(inc);
     } else if (RotaryEncoder::_pinBRef.count(gpio) > 0) {
-        int32_t inc;
         RotaryEncoder* const re = RotaryEncoder::_pinBRef[gpio];
         if (events == GPIO_IRQ_EDGE_RISE) {
-            inc = (gpio_get(re->_pinA)) ? 1 : -1;
+            re->_inc(gpio_get(re->_pinA));
         } else if (events == GPIO_IRQ_EDGE_FALL) {
-            inc = (gpio_get(re->_pinA)) ? -1 : 1;
+            re->_inc(!gpio_get(re->_pinA));
         }
-        re->_add(inc);
     }
 }
 
@@ -55,18 +51,32 @@ RotaryEncoder::~RotaryEncoder()
     _pinBRef.erase(_pinB);
 }
 
-int32_t RotaryEncoder::value() const
+void RotaryEncoder::set(int32_t value)
+{
+    _setRaw(value * _step);
+}
+
+int32_t RotaryEncoder::get() const
 {
     return _rawValue / _step;
 }
 
-void RotaryEncoder::_add(const int32_t inc)
+void RotaryEncoder::_setRaw(int32_t rawValue)
 {
-    _rawValue += inc;
-    if (_rawValue < (int32_t) (_min * _step)) {
-        _rawValue = _min * _step;
-    } else if (_rawValue > (int32_t) (_max * _step)) {
-        _rawValue = _max * _step;
+    if (rawValue < (int32_t) (_min * _step)) {
+        rawValue = _min * _step;
+    } else if (rawValue > (int32_t) (_max * _step)) {
+        rawValue = _max * _step;
+    }
+    _rawValue = rawValue;
+}
+
+void RotaryEncoder::_inc(const bool up)
+{
+    if (up) {
+        _setRaw(_rawValue + 1);
+    } else {
+        _setRaw(_rawValue - 1);
     }
 }
 

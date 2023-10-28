@@ -1,4 +1,4 @@
-# S/PDIF DAC headphone amp for Raspberry Pi Pico
+# S/PDIF DAC Headphone Amp for Raspberry Pi Pico
 ![banner](doc/pico_spdif_dac_hpamp.jpg)
 
 ## Overview
@@ -6,7 +6,7 @@
 * DAC Headphone Amp for SPDIF input
 * DAC volume by rotary encoder
 * Li-Po battery opration
-* Auto power off by no-sync / no-single timeout
+* Auto power off when no-sync / no-signal timeout
 
 ## Supported Board and Peripheral Devices
 * Raspberry Pi Pico (rp2040)
@@ -22,7 +22,6 @@
 | 22 | GP17 | LRCK | to PCM5102 LRCK (15) |
 | 23 | GND | GND | GND |
 | 24 | GP18 | SDO | to PCM5102 DIN (14) |
-| 40 | VBUS | VCC | to VIN of PCM5102 board |
 
 ### Rotary Encoder
 | Pico Pin # | Pin Name | Function | Connection |
@@ -41,9 +40,9 @@
 
 ## How to build
 * See ["Getting started with Raspberry Pi Pico"](https://datasheets.raspberrypi.org/pico/getting-started-with-pico.pdf)
-* Build is confirmed only in Developer Command Prompt for VS 2019 and Visual Studio Code on Windows enviroment
 * Put "pico-sdk", "pico-examples" (, "pico-extras" and "pico-playground") on the same level with this project folder.
-* Confirmed under Pico SDK 1.4.0
+* Build is confirmed in Developer Command Prompt for VS 2022 and Visual Studio Code on Windows enviroment
+* Confirmed with Pico SDK 1.4.0, cmake-3.27.2-windows-x86_64 and gcc-arm-none-eabi-10.3-2021.10-win32
 ```
 > git clone -b master https://github.com/raspberrypi/pico-sdk.git
 > cd pico-sdk
@@ -58,7 +57,7 @@
 > 
 > git clone -b main https://github.com/elehobica/pico_spdif_dac_hpamp
 ```
-* Lanuch "Developer Command Prompt for VS 2019"
+* Lanuch "Developer Command Prompt for VS 2022"
 ```
 > cd pico_spdif_dac_hpamp
 > git submodule update -i
