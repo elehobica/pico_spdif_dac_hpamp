@@ -10,6 +10,7 @@
 #include "hardware/pio.h"
 #include "pico/audio_i2s.h"
 #include "spdif_rx.h"
+#include "RotaryEncoder.h"
 
 static constexpr uint PIN_LED = PICO_DEFAULT_LED_PIN;
 
@@ -30,12 +31,11 @@ static bool decode_flg = false;
 volatile static bool i2s_setup_flg = false;
 volatile static bool i2s_cancel_flg = false;
 
-static constexpr int ROTARY_ENCODER_STEP = 2;
-static constexpr int ROTARY_ENCODER_OUTPUT_MIN = 0;
-static constexpr int ROTARY_ENCODER_OUTPUT_MAX = 100;
-static constexpr int ROTARY_ENCODER_OUTPUT_DEFAULT = 50;
-static volatile int re_raw_value = ROTARY_ENCODER_OUTPUT_DEFAULT * ROTARY_ENCODER_STEP;
-static volatile int re_out_value = re_raw_value / ROTARY_ENCODER_STEP;
+static gpio::RotaryEncoder* rotaryEncoder;
+static constexpr int32_t ROTARY_ENCODER_STEP = 2;
+static constexpr int32_t ROTARY_ENCODER_OUTPUT_MIN = 0;
+static constexpr int32_t ROTARY_ENCODER_OUTPUT_MAX = 100;
+static constexpr int32_t ROTARY_ENCODER_OUTPUT_DEFAULT = 50;
 
 static volatile uint32_t last_signal_time;
 
@@ -220,7 +220,7 @@ static bool decode()
         int i = 0;
         uint32_t read_count = 0;
         uint32_t* buff;
-        uint32_t volume_mul_target = vol_table[re_out_value];
+        uint32_t volume_mul_target = vol_table[rotaryEncoder->value()];
         // volume slow transition to avoid noise
         if (volume_mul < volume_mul_target) {
             volume_mul += (volume_mul_target - volume_mul + 64) / 64;
@@ -316,31 +316,6 @@ static void on_lost_stable_func()
     i2s_cancel_flg = true;
 }
 
-static void gpio_callback(uint gpio, uint32_t events)
-{
-    int inc = 0;
-    if (gpio == PIN_ROTARY_ENCODER_A) {
-        if (events == GPIO_IRQ_EDGE_RISE) {
-            inc = (gpio_get(PIN_ROTARY_ENCODER_B)) ? -1 : 1;
-        } else if (events == GPIO_IRQ_EDGE_FALL) {
-            inc = (gpio_get(PIN_ROTARY_ENCODER_B)) ? 1 : -1;
-        }
-    } else if (gpio == PIN_ROTARY_ENCODER_B) {
-        if (events == GPIO_IRQ_EDGE_RISE) {
-            inc = (gpio_get(PIN_ROTARY_ENCODER_A)) ? 1 : -1;
-        } else if (events == GPIO_IRQ_EDGE_FALL) {
-            inc = (gpio_get(PIN_ROTARY_ENCODER_A)) ? -1 : 1;
-        }
-    }
-    re_raw_value += inc;
-    if (re_raw_value < ROTARY_ENCODER_OUTPUT_MIN * ROTARY_ENCODER_STEP) {
-        re_raw_value = ROTARY_ENCODER_OUTPUT_MIN * ROTARY_ENCODER_STEP;
-    } else if (re_raw_value > ROTARY_ENCODER_OUTPUT_MAX * ROTARY_ENCODER_STEP) {
-        re_raw_value = ROTARY_ENCODER_OUTPUT_MAX * ROTARY_ENCODER_STEP;
-    }
-    re_out_value = re_raw_value / ROTARY_ENCODER_STEP;
-}
-
 int main()
 {
     stdio_init_all();
@@ -365,12 +340,11 @@ int main()
     gpio_init(PIN_ROTARY_ENCODER_A);
     gpio_set_dir(PIN_ROTARY_ENCODER_A, GPIO_IN);
     gpio_pull_up(PIN_ROTARY_ENCODER_A);
-    gpio_set_irq_enabled_with_callback(PIN_ROTARY_ENCODER_A, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, gpio_callback);
 
     gpio_init(PIN_ROTARY_ENCODER_B);
     gpio_set_dir(PIN_ROTARY_ENCODER_B, GPIO_IN);
     gpio_pull_up(PIN_ROTARY_ENCODER_B);
-    gpio_set_irq_enabled_with_callback(PIN_ROTARY_ENCODER_B, GPIO_IRQ_EDGE_RISE | GPIO_IRQ_EDGE_FALL, true, gpio_callback);
+    rotaryEncoder = new gpio::RotaryEncoder(PIN_ROTARY_ENCODER_A, PIN_ROTARY_ENCODER_B, ROTARY_ENCODER_STEP, ROTARY_ENCODER_OUTPUT_DEFAULT);
 
     spdif_rx_config_t config = {
         .data_pin = PIN_PICO_SPDIF_RX_DATA,
