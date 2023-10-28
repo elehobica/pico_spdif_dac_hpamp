@@ -28,3 +28,6 @@
 | Pico Pin # | Pin Name | Function | Connection |
 ----|----|----|----
 | 34 | GP28 | GPIO Output | P5V_EN |
+
+## Schematic
+[Schematic](doc/pico_spdif_dac_hpamp.pdf)
