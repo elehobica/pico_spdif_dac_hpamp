@@ -5,14 +5,14 @@
 * Application of [pico_spdif_rx](https://github.com/elehobica/pico_spdif_rx/) project
 * DAC Headphone Amp for SPDIF input
 * DAC volume by rotary encoder
-* Li-Po battery opration
+* Li-Po battery operation
 * Auto power off when no-sync / no-signal timeout
 
 ## Supported Board and Peripheral Devices
 * Raspberry Pi Pico (rp2040)
 * SPDIF Coaxial or TOSLINK (DLR1160 or equivalent) receiver
 * PCM5102 DAC board
-* FM5324 Li-Po Charger board
+* FM5324, MH-CD42 or IP5306 Li-Po Charger board
 
 ## Pin Assignment
 ### PCM5102
@@ -30,9 +30,10 @@
 | 32 | GP27 | GPIO Input | B Pin |
 | 33 | GND | GND | GND |
 
-### Power Control for DAC & AMP 
+### Power Control
 | Pico Pin # | Pin Name | Function | Connection |
 ----|----|----|----
+| 29 | GP22 | GPIO Output | CHARGER_KEY_EN |
 | 34 | GP28 | GPIO Output | P5V_EN |
 
 ## Schematic

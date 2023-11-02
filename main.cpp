@@ -20,6 +20,7 @@ static constexpr uint8_t PIN_PICO_SPDIF_RX_DATA = 15;
 static constexpr uint8_t PIN_ROTARY_ENCODER_A = 26;
 static constexpr uint8_t PIN_ROTARY_ENCODER_B = 27;
 static constexpr uint8_t PIN_P5V_EN = 28;
+static constexpr uint8_t PIN_CHARGER_KEY_EN = 22;
 
 static constexpr uint32_t NO_SYNC_TIMEOUT_P5V_OFF_SEC = 60;
 static constexpr uint32_t NO_SIGNAL_TIMEOUT_P5V_OFF_SEC = 180;
@@ -348,6 +349,12 @@ int main()
     gpio_set_dir(PIN_DCDC_PSM_CTRL, GPIO_OUT);
     gpio_put(PIN_DCDC_PSM_CTRL, true); // PWM mode for less Audio noise
 
+    // KEY enable for charger
+    gpio_init(PIN_CHARGER_KEY_EN);
+    gpio_set_dir(PIN_CHARGER_KEY_EN, GPIO_OUT);
+    gpio_put(PIN_CHARGER_KEY_EN, false);
+
+    // 5V Power for DAC & Amp
     gpio_init(PIN_P5V_EN);
     gpio_set_dir(PIN_P5V_EN, GPIO_OUT);
     gpio_put(PIN_DCDC_PSM_CTRL, false);
@@ -397,10 +404,13 @@ int main()
             gpio_put(PIN_LED, ((now / 10) % 100 < 4));  // blink 1 Hz / duty 4 %
             prev_power = true;
         } else {
-            gpio_put(PIN_P5V_EN, false);
+            gpio_put(PIN_P5V_EN, false); // terminate 5V power for DAC and Amp
             gpio_put(PIN_LED, false);
             if (prev_power) {
                 store_to_flash();  // at this timming the power from battery is still alive and shutdown soon
+            } else {
+                // terminate main 5V power from charger
+                gpio_put(PIN_CHARGER_KEY_EN, true);
             }
             prev_power = false;
         }
