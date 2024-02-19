@@ -12,7 +12,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
-add_subdirectory(lib/pico_spdif_rx spdif_rx)
+add_subdirectory(lib/pico_spdif_rx pico_spdif_rx)
 add_subdirectory(lib/pico_audio_32b pico_audio_32b) # for extended audio.h
 add_subdirectory(lib/pico_audio_i2s_32b pico_audio_i2s_32b)
 
@@ -26,7 +26,9 @@ add_executable(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     pico_stdlib
-    spdif_rx
+    pico_flash
+    hardware_exception
+    pico_spdif_rx
     pico_audio_32b
     pico_audio_i2s_32b
 )
@@ -40,5 +42,7 @@ add_compile_definitions(PICO_SPDIF_RX_PIO=0)
 add_compile_definitions(PICO_SPDIF_RX_DMA_IRQ=0)
 add_compile_definitions(PICO_AUDIO_I2S_PIO=1)
 add_compile_definitions(PICO_AUDIO_I2S_DMA_IRQ=1)
+add_compile_definitions(PICO_MAX_SHARED_IRQ_HANDLERS=5)
+add_compile_definitions(PICO_FLASH_ASSUME_CORE1_SAFE)
 
 pico_add_extra_outputs(${PROJECT_NAME}) # create map/bin/hex/uf2 files
