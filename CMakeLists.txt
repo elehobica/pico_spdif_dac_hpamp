@@ -40,5 +40,6 @@ add_compile_definitions(PICO_SPDIF_RX_PIO=0)
 add_compile_definitions(PICO_SPDIF_RX_DMA_IRQ=0)
 add_compile_definitions(PICO_AUDIO_I2S_PIO=1)
 add_compile_definitions(PICO_AUDIO_I2S_DMA_IRQ=1)
+add_compile_definitions(PICO_MAX_SHARED_IRQ_HANDLERS=5)
 
 pico_add_extra_outputs(${PROJECT_NAME}) # create map/bin/hex/uf2 files
