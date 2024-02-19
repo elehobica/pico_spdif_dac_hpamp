@@ -26,6 +26,8 @@ add_executable(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     pico_stdlib
+    pico_flash
+    hardware_exception
     pico_spdif_rx
     pico_audio_32b
     pico_audio_i2s_32b
@@ -41,5 +43,6 @@ add_compile_definitions(PICO_SPDIF_RX_DMA_IRQ=0)
 add_compile_definitions(PICO_AUDIO_I2S_PIO=1)
 add_compile_definitions(PICO_AUDIO_I2S_DMA_IRQ=1)
 add_compile_definitions(PICO_MAX_SHARED_IRQ_HANDLERS=5)
+add_compile_definitions(PICO_FLASH_ASSUME_CORE1_SAFE)
 
 pico_add_extra_outputs(${PROJECT_NAME}) # create map/bin/hex/uf2 files
