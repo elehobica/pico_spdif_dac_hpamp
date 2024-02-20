@@ -10,9 +10,10 @@
 #include <cstring>
 #include "pico/flash.h"
 
-static void _user_flash_program_core(void*)
+void _user_flash_program_core(void* ptr)
 {
-    userFlash._program_core();
+    UserFlash* inst = static_cast<UserFlash*>(ptr);
+    inst->_program_core();
 }
 
 //=================================
@@ -62,7 +63,10 @@ void UserFlash::program()
 {
     // Need to stop interrupt during erase and program
     // noted that if core1 is running, it must be stopped also if accessing flash
-    flash_safe_execute(_user_flash_program_core, nullptr, 1000);
+    int result = flash_safe_execute(_user_flash_program_core, this, 100);
+    if (result != PICO_OK) {
+        printf("ERROR: failed to program UserFlash\n");
+    }
 }
 
 void UserFlash::_program_core()

@@ -7,7 +7,6 @@
 #pragma once
 
 #include "hardware/flash.h"
-#include "hardware/sync.h"
 
 //=================================
 // Interface of UserFlash class
@@ -23,7 +22,6 @@ public:
     void read(uint32_t flash_ofs, size_t size, void *buf);
     void writeReserve(uint32_t flash_ofs, size_t size, const void *buf);
     void program();
-    void _program_core();
 protected:
     static const size_t FlashSize = 0x200000; // 2MB
     static const size_t UserReqSize = 1024; // Byte
@@ -38,4 +36,7 @@ protected:
     virtual ~UserFlash();
     UserFlash(const UserFlash&) = delete;
 	UserFlash& operator=(const UserFlash&) = delete;
+    void _program_core();
+
+friend void _user_flash_program_core(void*);
 };

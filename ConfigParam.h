@@ -8,8 +8,8 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <stdlib.h>
+#include <cstdint>
+#include <cstdlib>
 
 #define configParam             (ConfigParam::ConfigParamUser::instance())
 
