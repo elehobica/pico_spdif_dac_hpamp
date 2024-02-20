@@ -24,6 +24,7 @@ static constexpr uint8_t PIN_CHARGER_KEY_EN = 22;
 
 static constexpr uint32_t NO_SYNC_TIMEOUT_P5V_OFF_SEC = 60;
 static constexpr uint32_t NO_SIGNAL_TIMEOUT_P5V_OFF_SEC = 180;
+static constexpr uint32_t NO_SIGNAL_LEVEL = 4;  // level to detect blank supposing 16bit data
 
 static constexpr int SAMPLES_PER_BUFFER = PICO_AUDIO_I2S_BUFFER_SAMPLE_LENGTH; // Samples / channel
 static constexpr int32_t DAC_ZERO = 1;
@@ -194,12 +195,14 @@ static bool decode()
         mute_flag = true;
     }
 
-    bool has_non_zero_signal = false;
+    uint32_t data_accum = 0;
+    uint32_t ave_level;
     if (mute_flag) {
         for (int i = 0; i < ab->sample_count; i++) {
             samples[i*2+0] = DAC_ZERO;
             samples[i*2+1] = DAC_ZERO;
         }
+        ave_level = 0;
     } else {
         // I2S frequency adjustment (feedback from SPDIF_RX fffo_count)
         // note that this scheme could increase I2S clock jitter
@@ -232,9 +235,6 @@ static bool decode()
         while (read_count < total_count) {
             uint32_t get_count = spdif_rx_read_fifo(&buff, total_count - read_count);
             for (int j = 0; j < get_count / 2; j++) {
-                if ((buff[j*2+0] & 0x0ffffff0) || (buff[j*2+1] & 0x0ffffff0)) {
-                    has_non_zero_signal = true;
-                }
                 if (volume_mul >= 256) {
                     // keep 24bit if 32bit DAC
                     samples[i*2+0] = (int32_t) ((buff[j*2+0] & 0x0ffffff0) << 4) / 256 * (volume_mul / 256) + DAC_ZERO;
@@ -248,10 +248,13 @@ static bool decode()
                     samples[i*2+0] = (int32_t) ((buff[j*2+0] & 0x0ffffff0) << 4) / 65536 * volume_mul + DAC_ZERO;
                     samples[i*2+1] = (int32_t) ((buff[j*2+1] & 0x0ffffff0) << 4) / 65536 * volume_mul + DAC_ZERO;
                 }
+                data_accum += std::abs(static_cast<int16_t>(((buff[i*2+0] >> 12) & 0xffff)));
+                data_accum += std::abs(static_cast<int16_t>(((buff[i*2+1] >> 12) & 0xffff)));
                 i++;
             }
             read_count += get_count;
         }
+        ave_level = data_accum / total_count;
     }
     give_audio_buffer(ap, ab);
 
@@ -262,7 +265,7 @@ static bool decode()
     }
     #endif // DEBUG_PLAYAUDIO
 
-    return has_non_zero_signal;
+    return ave_level > NO_SIGNAL_LEVEL;
 }
 
 extern "C" {
@@ -395,11 +398,17 @@ int main()
             i2s_setup(spdif_rx_get_samp_freq());
         }
         if (spdif_rx_get_state() == SPDIF_RX_STATE_STABLE) {
+            last_sync_time = now;
+        }
+        if (spdif_rx_get_state() == SPDIF_RX_STATE_STABLE && (now - last_signal_time < NO_SIGNAL_TIMEOUT_P5V_OFF_SEC/2 * 1000)) {
             gpio_put(PIN_P5V_EN, true);
             gpio_put(PIN_LED, true);
-            last_sync_time = now;
             prev_power = true;
-        } else if ((now - last_sync_time < NO_SYNC_TIMEOUT_P5V_OFF_SEC * 1000) && (now - last_signal_time < NO_SIGNAL_TIMEOUT_P5V_OFF_SEC * 1000)) {
+        } else if (spdif_rx_get_state() == SPDIF_RX_STATE_STABLE && (now - last_signal_time < NO_SIGNAL_TIMEOUT_P5V_OFF_SEC * 1000)) {
+            gpio_put(PIN_P5V_EN, true);
+            gpio_put(PIN_LED, ((now / 10) % 100 < 16));  // blink 1 Hz / duty 16 %
+            prev_power = true;
+        } else if (spdif_rx_get_state() != SPDIF_RX_STATE_STABLE && (now - last_sync_time < NO_SYNC_TIMEOUT_P5V_OFF_SEC * 1000)) {
             gpio_put(PIN_P5V_EN, true);
             gpio_put(PIN_LED, ((now / 10) % 100 < 4));  // blink 1 Hz / duty 4 %
             prev_power = true;
