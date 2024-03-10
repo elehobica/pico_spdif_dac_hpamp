@@ -37,12 +37,16 @@ target_link_libraries(${PROJECT_NAME}
 pico_enable_stdio_usb(${PROJECT_NAME} 1)
 pico_enable_stdio_uart(${PROJECT_NAME} 0)
 
+# set core1 process i2s_callback
 # set project resource assignment for PIO and DMA_IRQ to avoid confliction
-add_compile_definitions(PICO_SPDIF_RX_PIO=0)
-add_compile_definitions(PICO_SPDIF_RX_DMA_IRQ=0)
-add_compile_definitions(PICO_AUDIO_I2S_PIO=1)
-add_compile_definitions(PICO_AUDIO_I2S_DMA_IRQ=1)
-add_compile_definitions(PICO_MAX_SHARED_IRQ_HANDLERS=5)
-add_compile_definitions(PICO_FLASH_ASSUME_CORE1_SAFE)
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    CORE1_PROCESS_I2S_CALLBACK
+    PICO_SPDIF_RX_PIO=0
+    PICO_SPDIF_RX_DMA_IRQ=0
+    PICO_AUDIO_I2S_PIO=1
+    PICO_AUDIO_I2S_DMA_IRQ=1
+    PICO_MAX_SHARED_IRQ_HANDLERS=5
+    PICO_FLASH_ASSUME_CORE1_SAFE
+)
 
 pico_add_extra_outputs(${PROJECT_NAME}) # create map/bin/hex/uf2 files
