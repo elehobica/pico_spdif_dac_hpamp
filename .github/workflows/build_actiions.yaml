@@ -1,0 +1,62 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build-job:
+    runs-on: ubuntu-latest
+    container:
+      image: elehobica/pico-sdk-dev-docker:sdk-2.1.1-1.0.0
+      options: --user root
+    env:
+      PICO_SDK_PATH: /home/rp2dev/pico/pico-sdk
+      PICO_EXTRAS_PATH: /home/rp2dev/pico/pico-extras
+      PICO_EXAMPLES_PATH: /home/rp2dev/pico/pico-examples
+    steps:
+      - name: Confirm the versions
+        run: |
+          cat /home/rp2dev/pico/pico-sdk/pico_sdk_version.cmake | grep "set(" | grep -v "{" | grep -v "ID"
+          cmake --version
+          gcc --version
+          JOBS=$(fgrep 'cpu cores' /proc/cpuinfo | sort -u | sed 's/.*: //')
+          echo "JOBS=$((JOBS+1))" >> $GITHUB_ENV
+          echo "JOBS=$((JOBS+1))"
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Build for Pico
+        run: |
+          mkdir build && cd build
+          cmake ..
+          make -j$JOBS
+          AddIdentifier=-$Target-$GITHUB_REF_NAME
+          if [ $GITHUB_REF_TYPE = "branch" ]; then
+            AddIdentifier=$AddIdentifier-${{github.run_number}}
+          fi
+          for ext in .uf2 .elf .elf.map; do
+            mv $(ls *$ext) $(basename $(ls *$ext) $ext)$AddIdentifier$ext
+          done
+        env:
+          Target: pico
+      - name: Build for Pico 2
+        run: |
+          mkdir build2 && cd build2
+          cmake -DPICO_PLATFORM=rp2350 -DPICO_BOARD=pico2 ..
+          make -j$JOBS
+          AddIdentifier=-$Target-$GITHUB_REF_NAME
+          if [ $GITHUB_REF_TYPE = "branch" ]; then
+            AddIdentifier=$AddIdentifier-${{github.run_number}}
+          fi
+          for ext in .uf2 .elf .elf.map; do
+            mv $(ls *$ext) $(basename $(ls *$ext) $ext)$AddIdentifier$ext
+          done
+        env:
+          Target: pico2
+      - name: Upload production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-binaries
+          path: |
+            build*/*.uf2
+            build*/*.elf
