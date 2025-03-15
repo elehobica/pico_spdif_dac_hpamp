@@ -12,25 +12,24 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
+add_subdirectory(lib/pico_audio_i2s_32b)
+add_subdirectory(lib/pico_audio_i2s_32b/src/pico_audio_32b)
+add_subdirectory(lib/pico_flash_param)
 add_subdirectory(lib/pico_spdif_rx pico_spdif_rx)
-add_subdirectory(lib/pico_audio_i2s_32b/src/pico_audio_32b pico_audio_32b) # for extended audio.h
-add_subdirectory(lib/pico_audio_i2s_32b pico_audio_i2s_32b)
 
 # select sample application here (choose only one)
 add_executable(${PROJECT_NAME}
     main.cpp
     RotaryEncoder.cpp
-    UserFlash.cpp
-    ConfigParam.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}
-    pico_stdlib
-    pico_flash
     hardware_exception
-    pico_spdif_rx
+    pico_stdlib
     pico_audio_32b
     pico_audio_i2s_32b
+    pico_flash_param
+    pico_spdif_rx
 )
 
 # enable usb output, disable uart output

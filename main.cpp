@@ -86,6 +86,8 @@ typedef enum _clkdiv_speed_t {
     CLKDIV_SLOW = 2
 } clkdiv_speed_t;
 
+ConfigParam& cfgParam = ConfigParam::instance();
+
 static inline uint32_t _millis()
 {
     return to_ms_since_boot(get_absolute_time());
@@ -323,7 +325,7 @@ static void on_lost_stable_func()
 
 static void load_from_flash()
 {
-    rotaryEncoder->set(GET_CFG_VOLUME);
+    rotaryEncoder->set(cfgParam.P_CFG_VOLUME.get());
     volume_mul = vol_table[rotaryEncoder->get()];
 }
 
@@ -332,8 +334,8 @@ static void store_to_flash()
     // note that there is no care about core1 if running (if core1 runs, finalize() will fail)
     // also it breaks spdif_rx data due to the pause of interrupts,
     //   therefore store_to_flash() should be done after audio power off
-    configParam.setU32(ConfigParam::ParamID_t::CFG_VOLUME, (uint32_t) rotaryEncoder->get());
-    configParam.finalize();
+    cfgParam.P_CFG_VOLUME.set(static_cast<uint32_t>(rotaryEncoder->get()));
+    cfgParam.finalize();
 }
 
 int main()
