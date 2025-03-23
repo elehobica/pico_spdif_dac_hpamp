@@ -1,35 +1,28 @@
-name: CI
+#------------------------------------------------------
+# Copyright (c) 2025, Elehobica
+# Released under the BSD-2-Clause
+# refer to https://opensource.org/licenses/BSD-2-Clause
+#------------------------------------------------------
 
-on: [push]
+name: Build
+
+on: [push, pull_request]
 
 jobs:
   build-job:
     runs-on: ubuntu-latest
-    container:
-      image: elehobica/pico-sdk-dev-docker:sdk-2.1.1-1.0.0
-      options: --user root
-    env:
-      PICO_SDK_PATH: /home/rp2dev/pico/pico-sdk
-      PICO_EXTRAS_PATH: /home/rp2dev/pico/pico-extras
-      PICO_EXAMPLES_PATH: /home/rp2dev/pico/pico-examples
     steps:
-      - name: Confirm the versions
-        run: |
-          cat /home/rp2dev/pico/pico-sdk/pico_sdk_version.cmake | grep "set(" | grep -v "{" | grep -v "ID"
-          cmake --version
-          gcc --version
-          JOBS=$(fgrep 'cpu cores' /proc/cpuinfo | sort -u | sed 's/.*: //')
-          echo "JOBS=$((JOBS+1))" >> $GITHUB_ENV
-          echo "JOBS=$((JOBS+1))"
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: true
-      - name: Build for Pico
+      - name: Build Pico
+        uses: elehobica/build-pico@v1
+        with:
+          build: build
+      - name: Move artifacts for Pico
         run: |
-          mkdir build && cd build
-          cmake ..
-          make -j$JOBS
+          cd $build
           AddIdentifier=-$Target-$GITHUB_REF_NAME
           if [ $GITHUB_REF_TYPE = "branch" ]; then
             AddIdentifier=$AddIdentifier-${{github.run_number}}
@@ -38,12 +31,17 @@ jobs:
             mv $(ls *$ext) $(basename $(ls *$ext) $ext)$AddIdentifier$ext
           done
         env:
+          build: build
           Target: pico
-      - name: Build for Pico 2
+      - name: Build-pico2
+        uses: elehobica/build-pico@v1
+        with:
+          build: build2
+          platform: rp2350
+          board: pico2
+      - name: Move artifacts for Pico 2
         run: |
-          mkdir build2 && cd build2
-          cmake -DPICO_PLATFORM=rp2350 -DPICO_BOARD=pico2 ..
-          make -j$JOBS
+          cd $build
           AddIdentifier=-$Target-$GITHUB_REF_NAME
           if [ $GITHUB_REF_TYPE = "branch" ]; then
             AddIdentifier=$AddIdentifier-${{github.run_number}}
@@ -52,6 +50,7 @@ jobs:
             mv $(ls *$ext) $(basename $(ls *$ext) $ext)$AddIdentifier$ext
           done
         env:
+          build: build2
           Target: pico2
       - name: Upload production artifacts
         uses: actions/upload-artifact@v4
