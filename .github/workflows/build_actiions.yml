@@ -26,6 +26,7 @@ jobs:
           paths: ./build
           exts: .uf2 .elf .elf.map
           identifier: pico
+          output_path: Release
       - name: Build Pico 2
         uses: elehobica/build-pico@v1
         with:
@@ -38,10 +39,11 @@ jobs:
           paths: ./build2
           exts: .uf2 .elf .elf.map
           identifier: pico2
+          output_path: Release
       - name: Upload production artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist-binaries
           path: |
-            build*/*.uf2
-            build*/*.elf
+            Release/*.uf2
+            Release/*.elf
