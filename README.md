@@ -1,6 +1,8 @@
 # S/PDIF DAC Headphone Amp for Raspberry Pi Pico / Pico 2
 ![banner](doc/pico_spdif_dac_hpamp.jpg)
 
+![workflow](https://github.com/elehobica/pico_spdif_dac_hpamp/actions/workflows/build_actiions.yml/badge.svg)
+
 ## Overview
 * Application of [pico_spdif_rx](https://github.com/elehobica/pico_spdif_rx/) project
 * DAC Headphone Amp for SPDIF input
