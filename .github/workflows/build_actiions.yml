@@ -21,37 +21,23 @@ jobs:
         with:
           build: build
       - name: Move artifacts for Pico
-        run: |
-          cd $build
-          AddIdentifier=-$Target-$GITHUB_REF_NAME
-          if [ $GITHUB_REF_TYPE = "branch" ]; then
-            AddIdentifier=$AddIdentifier-${{github.run_number}}
-          fi
-          for ext in .uf2 .elf .elf.map; do
-            mv $(ls *$ext) $(basename $(ls *$ext) $ext)$AddIdentifier$ext
-          done
-        env:
-          build: build
-          Target: pico
-      - name: Build-pico2
+        uses: elehobica/add-identifier@v1
+        with:
+          paths: ./build
+          exts: .uf2 .elf .elf.map
+          identifier: pico
+      - name: Build Pico 2
         uses: elehobica/build-pico@v1
         with:
           build: build2
           platform: rp2350
           board: pico2
       - name: Move artifacts for Pico 2
-        run: |
-          cd $build
-          AddIdentifier=-$Target-$GITHUB_REF_NAME
-          if [ $GITHUB_REF_TYPE = "branch" ]; then
-            AddIdentifier=$AddIdentifier-${{github.run_number}}
-          fi
-          for ext in .uf2 .elf .elf.map; do
-            mv $(ls *$ext) $(basename $(ls *$ext) $ext)$AddIdentifier$ext
-          done
-        env:
-          build: build2
-          Target: pico2
+        uses: elehobica/add-identifier@v1
+        with:
+          paths: ./build2
+          exts: .uf2 .elf .elf.map
+          identifier: pico2
       - name: Upload production artifacts
         uses: actions/upload-artifact@v4
         with:
