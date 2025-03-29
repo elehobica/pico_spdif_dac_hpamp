@@ -1,0 +1,45 @@
+#------------------------------------------------------
+# Copyright (c) 2025, Elehobica
+# Released under the BSD-2-Clause
+# refer to https://opensource.org/licenses/BSD-2-Clause
+#------------------------------------------------------
+
+name: Build
+
+on: [push, pull_request]
+
+jobs:
+  build-pico:
+    uses: ./.github/workflows/workflow_build_and_rename.yml
+    with:
+      path: .
+      build: build
+      identifier: pico
+      output_path: Release
+
+  build-pico2:
+    uses: ./.github/workflows/workflow_build_and_rename.yml
+    with:
+      path: .
+      build: build2
+      platform: rp2350
+      board: pico2
+      identifier: pico2
+      output_path: Release
+
+  combine-upload:
+    runs-on: ubuntu-latest
+    needs: [build-pico, build-pico2]
+    steps:
+      - name: Download
+        uses: actions/download-artifact@v4
+        with:
+          path: Release
+          merge-multiple: true
+      - name: Upload production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-binaries
+          path: |
+            Release/*.uf2
+            Release/*.elf
