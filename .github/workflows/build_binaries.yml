@@ -9,37 +9,35 @@ name: Build
 on: [push, pull_request]
 
 jobs:
-  build-pico:
-    uses: ./.github/workflows/workflow_build_and_rename.yml
-    with:
-      path: .
-      build: build
-      identifier: pico
-      output_path: Release
-
-  build-pico2:
-    uses: ./.github/workflows/workflow_build_and_rename.yml
-    with:
-      path: .
-      build: build2
-      platform: rp2350
-      board: pico2
-      identifier: pico2
-      output_path: Release
-
-  combine-upload:
+  build-and-upload:
     runs-on: ubuntu-latest
-    needs: [build-pico, build-pico2]
+    env:
+      RELEASE_DIR: Release
     steps:
-      - name: Download
-        uses: actions/download-artifact@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          path: Release
-          merge-multiple: true
+          submodules: true
+      - name: Build Pico
+        uses: ./.github/actions/build_and_rename
+        with:
+          path: .
+          build: build
+          identifier: pico
+          output_path: ${{env.RELEASE_DIR}}
+      - name: Build Pico 2
+        uses: ./.github/actions/build_and_rename
+        with:
+          path: .
+          build: build2
+          platform: rp2350
+          board: pico2
+          identifier: pico2
+          output_path: ${{env.RELEASE_DIR}}
       - name: Upload production artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist-binaries
           path: |
-            Release/*.uf2
-            Release/*.elf
+            ${{env.RELEASE_DIR}}/*.uf2
+            ${{env.RELEASE_DIR}}/*.elf
