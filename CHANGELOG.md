@@ -5,9 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
+
+## [1.0.1] - 2025-04-20
 ### Added
 * Support Raspberry Pi Pico 2
-* Add GitHub Actions workflow for build
+* Add GitHub Actions for build and release
 ### Changed
 * Support pico-sdk 2.1.1 (previously 1.5.1)
 
