@@ -42,19 +42,34 @@
 ## Schematic
 [pico_spdif_dac_hpamp.pdf](doc/pico_spdif_dac_hpamp.pdf)
 
-## How to build
+## How to build with docker image
+* Builds the firmware inside [pico-sdk-dev-docker:sdk-2.3.0](https://hub.docker.com/r/elehobica/pico-sdk-dev-docker) (same image used by CI). Requires Docker; no local Pico SDK setup is needed.
+* `build_docker.sh` drives the container build. Run it from the repository root.
+```
+$ git clone -b main https://github.com/elehobica/pico_spdif_dac_hpamp.git
+$ cd pico_spdif_dac_hpamp
+$ git submodule update -i
+$ ./build_docker.sh           # build both targets (default)
+$ ./build_docker.sh pico      # build only Pico (rp2040)   -> build/spdif_dac_hpamp.uf2
+$ ./build_docker.sh pico2     # build only Pico 2 (rp2350) -> build2/spdif_dac_hpamp.uf2
+$ ./build_docker.sh -k        # incremental build (keep build directory contents)
+```
+* Outputs: `build/spdif_dac_hpamp.uf2` for Pico (rp2040), `build2/spdif_dac_hpamp.uf2` for Pico 2 (rp2350)
+* Download "*.uf2" on RPI-RP2 or RP2350 drive
+
+## How to build in local
 * See ["Getting started with Raspberry Pi Pico"](https://datasheets.raspberrypi.org/pico/getting-started-with-pico.pdf)
 * Put "pico-sdk", "pico-examples" and "pico-extras" on the same level with this project folder.
 * Set environmental variables for PICO_SDK_PATH, PICO_EXTRAS_PATH and PICO_EXAMPLES_PATH
-* Confirmed with Pico SDK 2.1.1
+* Confirmed with Pico SDK 2.3.0
 ```
-> git clone -b 2.1.1 https://github.com/raspberrypi/pico-sdk.git
+> git clone -b 2.3.0 https://github.com/raspberrypi/pico-sdk.git
 > cd pico-sdk
 > git submodule update -i
 > cd ..
-> git clone -b sdk-2.1.1 https://github.com/raspberrypi/pico-examples.git
+> git clone -b sdk-2.3.0 https://github.com/raspberrypi/pico-examples.git
 >
-> git clone -b sdk-2.1.1 https://github.com/raspberrypi/pico-extras.git
+> git clone -b sdk-2.3.0 https://github.com/raspberrypi/pico-extras.git
 > 
 > git clone -b main https://github.com/elehobica/pico_spdif_dac_hpamp.git
 > cd pico_spdif_dac_hpamp
@@ -74,7 +89,7 @@
 ```
 * Put "*.uf2" on RPI-RP2 or RP2350 drive
 ### Linux
-* Build is confirmed with [pico-sdk-dev-docker:sdk-2.1.1-1.0.0]( https://hub.docker.com/r/elehobica/pico-sdk-dev-docker)
+* Build is confirmed with [pico-sdk-dev-docker:sdk-2.3.0](https://hub.docker.com/r/elehobica/pico-sdk-dev-docker)
 * Confirmed with cmake-3.22.1 and arm-none-eabi-gcc (15:10.3-2021.07-4) 10.3.1
 ```
 $ cd pico_spdif_dac_hpamp
